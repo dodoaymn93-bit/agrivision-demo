@@ -11,8 +11,8 @@ st.set_page_config(page_title="AgriVision Demo", layout="wide")
 # -------------------------------
 # 1. Static thumbnail URLs
 # -------------------------------
-ndvi_url = "PASTE_YOUR_NDVI_THUMB_URL_HERE"
-smap_url = "PASTE_YOUR_SMAP_THUMB_URL_HERE"
+ndvi_url = "https://earthengine.googleapis.com/v1/projects/angelic-ivy-473311-b3/thumbnails/44e9619e1c3d149e05c6bf79e087c571-db05b9e550e90b87d78f133c063f198d:getPixels"
+smap_url = "https://earthengine.googleapis.com/v1/projects/angelic-ivy-473311-b3/thumbnails/44e9619e1c3d149e05c6bf79e087c571-db05b9e550e90b87d78f133c063f198d:getPixels"
 
 # -------------------------------
 # 2. NASA POWER API: Rainfall for Essaouira
@@ -59,7 +59,7 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("🌱 NDVI (MODIS 2024)")
-    if ndvi_url != "PASTE_YOUR_NDVI_THUMB_URL_HERE":
+    if ndvi_url:
         try:
             st.image(ndvi_url, caption="NDVI Median 2024 - Essaouira", use_column_width=True)
         except Exception as e:
@@ -69,7 +69,7 @@ with col1:
 
 with col2:
     st.subheader("💧 Soil Moisture (SMAP June 2024)")
-    if smap_url != "PASTE_YOUR_SMAP_THUMB_URL_HERE":
+    if smap_url:
         try:
             st.image(smap_url, caption="SMAP Soil Moisture - Essaouira", use_column_width=True)
         except Exception as e:

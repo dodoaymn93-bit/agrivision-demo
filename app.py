@@ -18,15 +18,19 @@ smap_url = "PASTE_YOUR_SMAP_THUMB_URL_HERE"
 # 2. NASA POWER API: Rainfall for Essaouira
 # -------------------------------
 lat, lon = 31.51, -9.77
+start_date = "20240101"
+end_date = "20240131"  # shorter range to avoid API errors
+parameter = "PRECTOT"  # safe precipitation variable
+
 url = (
     f"https://power.larc.nasa.gov/api/temporal/daily/point?"
-    f"parameters=PRECTOTCORR&start=20240101&end=20241231&"
+    f"parameters={parameter}&start={start_date}&end={end_date}&"
     f"latitude={lat}&longitude={lon}&format=JSON"
 )
 
 try:
-    response = requests.get(url, timeout=10)  # timeout to avoid hanging
-    response.raise_for_status()  # raise error for bad responses
+    response = requests.get(url, timeout=10)
+    response.raise_for_status()
     r = response.json()
 except requests.exceptions.RequestException as e:
     st.error(f"❌ API request failed: {e}")
@@ -36,18 +40,14 @@ except requests.exceptions.RequestException as e:
 st.write("API Response Preview:", r)
 
 parameters = r.get("properties", {}).get("parameter", {})
-data = parameters.get("PRECTOTCORR")
+data = parameters.get(parameter)
 
 if not data:
     st.warning("⚠️ No precipitation data found — check API request or coordinates.")
     df = pd.DataFrame(columns=["Date", "Rain (mm/day)"])
 else:
-    try:
-        df = pd.DataFrame(list(data.items()), columns=["Date", "Rain (mm/day)"])
-        df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-    except Exception as e:
-        st.error(f"❌ Error processing precipitation data: {e}")
-        df = pd.DataFrame(columns=["Date", "Rain (mm/day)"])
+    df = pd.DataFrame(list(data.items()), columns=["Date", "Rain (mm/day)"])
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
 
 # -------------------------------
 # 3. Streamlit Layout

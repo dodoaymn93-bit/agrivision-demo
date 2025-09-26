@@ -19,8 +19,8 @@ smap_url = "PASTE_YOUR_SMAP_THUMB_URL_HERE"
 # -------------------------------
 lat, lon = 31.51, -9.77
 start_date = "20240101"
-end_date = "20240131"  # shorter range to avoid API errors
-parameter = "PRECTOT"  # safe precipitation variable
+end_date = "20240131"
+parameter = "PRECTOT"
 
 url = (
     f"https://power.larc.nasa.gov/api/temporal/daily/point?"
@@ -32,12 +32,10 @@ try:
     response = requests.get(url, timeout=10)
     response.raise_for_status()
     r = response.json()
+    st.write("API Response:", r)  # Log the full response for debugging
 except requests.exceptions.RequestException as e:
     st.error(f"❌ API request failed: {e}")
     r = {}
-
-# DEBUG: Show API response structure
-st.write("API Response Preview:", r)
 
 parameters = r.get("properties", {}).get("parameter", {})
 data = parameters.get(parameter)

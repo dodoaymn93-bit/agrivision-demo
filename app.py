@@ -31,62 +31,34 @@ plant_irrigation_profiles = {
 # -------------------------------
 lat, lon = 31.51, -9.77
 
+def fetch_nasa_power_data(start_date, end_date, parameter="PRECTOTCORR"):
+    url = (
+        f"https://power.larc.nasa.gov/api/temporal/daily/point?"
+        f"parameters={parameter}&start={start_date}&end={end_date}&"
+        f"latitude={lat}&longitude={lon}&community=AG&format=JSON"
+    )
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        r = response.json()
+        parameters = r.get("properties", {}).get("parameter", {})
+        data = parameters.get(parameter)
+        if not data:
+            return pd.DataFrame(columns=["Date", "Rain (mm/day)"])
+        df = pd.DataFrame(list(data.items()), columns=["Date", "Rain (mm/day)"])
+        df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+        return df
+    except Exception as e:
+        st.error(f"❌ NASA POWER API request failed: {e}")
+        return pd.DataFrame(columns=["Date", "Rain (mm/day)"])
+
 # Historical rainfall
-start_date_hist = "20240101"
-end_date_hist = "20240131"
-parameter_hist = "PRECTOTCORR"
+df_hist = fetch_nasa_power_data("20240101", "20240131")
 
-url_hist = (
-    f"https://power.larc.nasa.gov/api/temporal/daily/point?"
-    f"parameters={parameter_hist}&start={start_date_hist}&end={end_date_hist}&"
-    f"latitude={lat}&longitude={lon}&community=AG&format=JSON"
-)
-
-try:
-    response = requests.get(url_hist, timeout=10)
-    response.raise_for_status()
-    r_hist = response.json()
-except requests.exceptions.RequestException as e:
-    st.error(f"❌ API request failed: {e}")
-    r_hist = {}
-
-parameters = r_hist.get("properties", {}).get("parameter", {})
-data_hist = parameters.get(parameter_hist)
-
-if not data_hist:
-    st.warning("⚠️ No precipitation data found — check API request or coordinates.")
-    df_hist = pd.DataFrame(columns=["Date", "Rain (mm/day)"])
-else:
-    df_hist = pd.DataFrame(list(data_hist.items()), columns=["Date", "Rain (mm/day)"])
-    df_hist["Date"] = pd.to_datetime(df_hist["Date"], errors="coerce")
-
-# Forecast rainfall (next 7 days from NASA POWER API)
+# Forecast rainfall (next 7 days)
 start_date_forecast = (datetime.date.today() + datetime.timedelta(days=1)).strftime('%Y%m%d')
 end_date_forecast = (datetime.date.today() + datetime.timedelta(days=7)).strftime('%Y%m%d')
-parameter_forecast = "PRECTOT"
-
-url_forecast = (
-    f"https://power.larc.nasa.gov/api/temporal/daily/point?"
-    f"parameters={parameter_forecast}&start={start_date_forecast}&end={end_date_forecast}&"
-    f"latitude={lat}&longitude={lon}&community=AG&format=JSON"
-)
-
-try:
-    response_forecast = requests.get(url_forecast, timeout=10)
-    response_forecast.raise_for_status()
-    r_forecast = response_forecast.json()
-except requests.exceptions.RequestException as e:
-    st.error(f"❌ Forecast API request failed: {e}")
-    r_forecast = {}
-
-parameters_forecast = r_forecast.get("properties", {}).get("parameter", {})
-data_forecast = parameters_forecast.get(parameter_forecast)
-
-if not data_forecast:
-    df_forecast = pd.DataFrame(columns=["Date", "Rain (mm/day)"])
-else:
-    df_forecast = pd.DataFrame(list(data_forecast.items()), columns=["Date", "Rain (mm/day)"])
-    df_forecast["Date"] = pd.to_datetime(df_forecast["Date"], errors="coerce")
+df_forecast = fetch_nasa_power_data(start_date_forecast, end_date_forecast, parameter="PRECTOTCORR")
 
 # -------------------------------
 # 4. Streamlit Layout

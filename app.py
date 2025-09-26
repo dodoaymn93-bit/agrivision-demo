@@ -20,19 +20,18 @@ smap_url = "PASTE_YOUR_SMAP_THUMB_URL_HERE"
 lat, lon = 31.51, -9.77
 start_date = "20240101"
 end_date = "20240131"
-parameter = "PRECTOT"
+parameter = "PRECTOTCORR"  # fixed parameter
 
 url = (
     f"https://power.larc.nasa.gov/api/temporal/daily/point?"
     f"parameters={parameter}&start={start_date}&end={end_date}&"
-    f"latitude={lat}&longitude={lon}&format=JSON"
+    f"latitude={lat}&longitude={lon}&community=AG&format=JSON"
 )
 
 try:
     response = requests.get(url, timeout=10)
     response.raise_for_status()
     r = response.json()
-    st.write("API Response:", r)  # Log the full response for debugging
 except requests.exceptions.RequestException as e:
     st.error(f"❌ API request failed: {e}")
     r = {}

@@ -12,7 +12,7 @@ st.set_page_config(page_title="AgriVision Demo", layout="wide")
 # 1. Static thumbnail URLs
 # -------------------------------
 ndvi_url = "https://earthengine.googleapis.com/v1/projects/angelic-ivy-473311-b3/thumbnails/44e9619e1c3d149e05c6bf79e087c571-db05b9e550e90b87d78f133c063f198d:getPixels"
-smap_url = "https://earthengine.googleapis.com/v1/projects/angelic-ivy-473311-b3/thumbnails/44e9619e1c3d149e05c6bf79e087c571-db05b9e550e90b87d78f133c063f198d:getPixels"
+smap_url = "https://earthengine.googleapis.com/v1/projects/angelic-ivy-473311-b3/thumbnails/780c354fa689121c0f4480f24c68bcce-01d38391b14d51ae18d3a41ef5174bbc:getPixels"
 
 # -------------------------------
 # 2. NASA POWER API: Rainfall for Essaouira

@@ -61,7 +61,7 @@ with col1:
     st.subheader("🌱 NDVI (MODIS 2024)")
     if ndvi_url:
         try:
-            st.image(ndvi_url, caption="NDVI Median 2024 - Essaouira", use_column_width=True)
+            st.image(ndvi_url, caption="NDVI Median 2024 - Essaouira", use_container_width=True)
         except Exception as e:
             st.error(f"❌ Failed to load NDVI image: {e}")
     else:
@@ -71,7 +71,7 @@ with col2:
     st.subheader("💧 Soil Moisture (SMAP June 2024)")
     if smap_url:
         try:
-            st.image(smap_url, caption="SMAP Soil Moisture - Essaouira", use_column_width=True)
+            st.image(smap_url, caption="SMAP Soil Moisture - Essaouira", use_container_width=True)
         except Exception as e:
             st.error(f"❌ Failed to load SMAP image: {e}")
     else:

@@ -27,14 +27,14 @@ plant_irrigation_profiles = {
 }
 
 # -------------------------------
-# 3. NASA POWER API: Rainfall
+# 3. NASA POWER API: Rainfall (Working)
 # -------------------------------
 lat, lon = 31.51, -9.77
 
-def fetch_nasa_power_data(start_date, end_date, parameter="PRECTOTCORR"):
+def fetch_nasa_power_data(start_date, end_date):
     url = (
         f"https://power.larc.nasa.gov/api/temporal/daily/point?"
-        f"parameters={parameter}&start={start_date}&end={end_date}&"
+        f"parameters=PRECTOTCORR&start={start_date}&end={end_date}&"
         f"latitude={lat}&longitude={lon}&community=AG&format=JSON"
     )
     try:
@@ -42,7 +42,7 @@ def fetch_nasa_power_data(start_date, end_date, parameter="PRECTOTCORR"):
         response.raise_for_status()
         r = response.json()
         parameters = r.get("properties", {}).get("parameter", {})
-        data = parameters.get(parameter)
+        data = parameters.get("PRECTOTCORR")
         if not data:
             return pd.DataFrame(columns=["Date", "Rain (mm/day)"])
         df = pd.DataFrame(list(data.items()), columns=["Date", "Rain (mm/day)"])
@@ -58,7 +58,7 @@ df_hist = fetch_nasa_power_data("20240101", "20240131")
 # Forecast rainfall (next 7 days)
 start_date_forecast = (datetime.date.today() + datetime.timedelta(days=1)).strftime('%Y%m%d')
 end_date_forecast = (datetime.date.today() + datetime.timedelta(days=7)).strftime('%Y%m%d')
-df_forecast = fetch_nasa_power_data(start_date_forecast, end_date_forecast, parameter="PRECTOTCORR")
+df_forecast = fetch_nasa_power_data(start_date_forecast, end_date_forecast)
 
 # -------------------------------
 # 4. Streamlit Layout
@@ -122,7 +122,7 @@ days_since_irrigation = (datetime.date.today() - last_irrigation).days
 st.subheader("📢 Irrigation Recommendation")
 
 avg_rain_forecast = df_forecast["Rain (mm/day)"].mean() if not df_forecast.empty else 0.0
-soil_moisture_current = 0.25  # Example placeholder; replace with SMAP actual data later
+soil_moisture_current = 0.25  # Placeholder — replace with real SMAP data later
 
 if days_since_irrigation >= interval:
     st.error(f"⚠️ Irrigation overdue! You should water {selected_plant} today (~{water_amount} mm/day).")

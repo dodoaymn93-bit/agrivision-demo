@@ -1,143 +1,126 @@
-import streamlit as st
-import requests
-import pandas as pd
-import matplotlib.pyplot as plt
-import datetime
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>AgriVision Prototype</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
+  <style>
+    body { margin:0; font-family: Arial, Helvetica, sans-serif; background:#f4f7f9; }
+    #ui { position: absolute; top:10px; left:10px; width:360px; padding:12px; background:rgba(255,255,255,0.95); border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.08);}
+    #ndvi { width: 330px; height: 180px; object-fit:cover; border-radius:6px; border:1px solid #ddd; }
+    button { margin-top:8px; padding:8px 12px; border-radius:6px; border: none; cursor:pointer; background:#2b7cff; color:white; }
+    .secondary { background:#666; }
+    #messages { margin-top:8px; font-size:14px; color:#222; }
+  </style>
+</head>
+<body>
 
-# -------------------------------
-# 0. Streamlit Config
-# -------------------------------
-st.set_page_config(page_title="AgriVision Smart Irrigation", layout="wide")
+<div id="ui">
+  <h3>AgriVision — Mini Scenario</h3>
+  <div>
+    <img id="ndvi" src="https://earthengine.googleapis.com/v1/projects/angelic-ivy-473311-b3/thumbnails/44e9619e1c3d149e05c6bf79e087c571-db05b9e550e90b87d78f133c063f198d:getPixels" alt="NDVI"/>
+  </div>
+  <div style="margin-top:8px;">
+    <label><strong>Crop:</strong> Olive Tree</label><br/>
+    <label><strong>Soil type:</strong> Loam</label><br/>
+    <label><strong>Root depth:</strong> 1.0 m</label>
+  </div>
 
-# -------------------------------
-# 1. Static Thumbnail URLs
-# -------------------------------
-ndvi_url = "https://earthengine.googleapis.com/v1/projects/angelic-ivy-473311-b3/thumbnails/44e9619e1c3d149e05c6bf79e087c571-db05b9e550e90b87d78f133c063f198d:getPixels"
-smap_url = "https://earthengine.googleapis.com/v1/projects/angelic-ivy-473311-b3/thumbnails/780c354fa689121c0f4480f24c68bcce-01d38391b14d51ae18d3a41ef5174bbc:getPixels"
+  <div style="margin-top:8px;">
+    <button id="irrigateBtn">Irrigate today (20 mm)</button>
+    <button id="skipBtn" class="secondary">Skip irrigation</button>
+  </div>
 
-# -------------------------------
-# 2. Plant Irrigation Profiles
-# -------------------------------
-plant_irrigation_profiles = {
-    "Tomato": {"interval_days": 3, "water_mm_per_day": 10},
-    "Rose": {"interval_days": 2, "water_mm_per_day": 8},
-    "Olive Tree": {"interval_days": 7, "water_mm_per_day": 20},
-    "Basil": {"interval_days": 1, "water_mm_per_day": 5},
-    "Lettuce": {"interval_days": 2, "water_mm_per_day": 6}
-}
+  <div id="messages">Loading recent precipitation...</div>
+</div>
 
-# -------------------------------
-# 3. NASA POWER API: Rainfall (Working)
-# -------------------------------
-lat, lon = 31.51, -9.77
+<script>
+(async function(){
+  const messages = document.getElementById('messages');
 
-def fetch_nasa_power_data(start_date, end_date):
-    url = (
-        f"https://power.larc.nasa.gov/api/temporal/daily/point?"
-        f"parameters=PRECTOTCORR&start={start_date}&end={end_date}&"
-        f"latitude={lat}&longitude={lon}&community=AG&format=JSON"
-    )
-    try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        r = response.json()
-        parameters = r.get("properties", {}).get("parameter", {})
-        data = parameters.get("PRECTOTCORR")
-        if not data:
-            return pd.DataFrame(columns=["Date", "Rain (mm/day)"])
-        df = pd.DataFrame(list(data.items()), columns=["Date", "Rain (mm/day)"])
-        df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-        return df
-    except Exception as e:
-        st.error(f"❌ NASA POWER API request failed: {e}")
-        return pd.DataFrame(columns=["Date", "Rain (mm/day)"])
+  // NASA POWER API (your link) - precipitation for 2025-09-07 to 2025-09-13
+  const url = "https://power.larc.nasa.gov/api/temporal/daily/point?parameters=PRECTOTCORR&start=20250907&end=20250913&latitude=31.51&longitude=9.7&community=AG&format=JSON";
 
-# Historical rainfall
-df_hist = fetch_nasa_power_data("20240101", "20240131")
+  try {
+    const resp = await fetch(url);
+    if(!resp.ok) throw new Error('Network response not OK');
+    const data = await resp.json();
+    const rainObj = data.properties.parameter.PRECTOTCORR;
+    const entries = Object.entries(rainObj).map(([date,val])=>({date, val:+val}));
+    const total = entries.reduce((s,e)=>s+e.val,0);
+    messages.innerHTML = `<strong>Precipitation (7–13 Sep 2025):</strong> ${total.toFixed(1)} mm total<br/><em>Daily:</em> ${entries.map(e=>e.val.toFixed(1)).join(', ')}`;
+  } catch (e) {
+    messages.innerText = "Could not fetch precipitation — check network or CORS. (Error: "+e.message+")";
+  }
 
-# Forecast rainfall (next 7 days)
-start_date_forecast = (datetime.date.today() + datetime.timedelta(days=1)).strftime('%Y%m%d')
-end_date_forecast = (datetime.date.today() + datetime.timedelta(days=7)).strftime('%Y%m%d')
-df_forecast = fetch_nasa_power_data(start_date_forecast, end_date_forecast)
+  // Simple soil water model params (toy)
+  let rootDepth = 1.0; // m
+  let whc = 150; // mm/m for loam
+  let fieldCapacity = whc * rootDepth; // mm
+  let soilWater = fieldCapacity * 0.75; // start at 75% FC
+  const cropKc = 0.65; // olive (toy)
+  const ETo = 5.0; // mm/day (toy)
+  const ETc = ETo * cropKc;
 
-# -------------------------------
-# 4. Streamlit Layout
-# -------------------------------
-st.title("🌱 AgriVision Smart Irrigation Assistant")
-st.markdown("""
-A complete tool for farmers, gardeners, and schools to manage irrigation using **NDVI**, **SMAP**, **NASA POWER rainfall forecasts**, and **plant-specific recommendations**.
-""")
+  function simulateDay(irrigation_mm, rain_mm) {
+    soilWater = Math.min(fieldCapacity, soilWater + rain_mm + irrigation_mm - ETc);
+    // simple stress check
+    const stress = soilWater < (fieldCapacity * 0.3);
+    return {soilWater: soilWater.toFixed(1), stress};
+  }
 
-col1, col2 = st.columns(2)
+  document.getElementById('irrigateBtn').onclick = () => {
+    // apply 20 mm irrigation and average rain of last period (toy)
+    const rainToday = 0; // assume no rain today
+    const result = simulateDay(20, rainToday);
+    messages.innerHTML += `<br/><br/><strong>Action:</strong> Irrigated 20 mm. Soil water = ${result.soilWater} mm. Stress: ${result.stress ? 'Yes' : 'No' }`;
+    showTutorialPeek('Irrigation increased soil water; avoid overwatering—monitor root zone.');
+  };
 
-with col1:
-    st.subheader("🌱 NDVI (MODIS 2024)")
-    if ndvi_url:
-        st.image(ndvi_url, caption="NDVI Median 2024 - Essaouira", use_container_width=True)
-    else:
-        st.warning("Paste NDVI thumbnail URL from Earth Engine here.")
+  document.getElementById('skipBtn').onclick = () => {
+    const rainToday = 0;
+    const result = simulateDay(0, rainToday);
+    messages.innerHTML += `<br/><br/><strong>Action:</strong> Skipped irrigation. Soil water = ${result.soilWater} mm. Stress: ${result.stress ? 'Yes' : 'No' }`;
+    showTutorialPeek('Skipping saves water but may cause crop stress if soil water drops below threshold.');
+  };
 
-with col2:
-    st.subheader("💧 Soil Moisture (SMAP June 2024)")
-    if smap_url:
-        st.image(smap_url, caption="SMAP Soil Moisture - Essaouira", use_container_width=True)
-    else:
-        st.warning("Paste SMAP thumbnail URL from Earth Engine here.")
+  function showTutorialPeek(text){
+    const t = document.createElement('div');
+    t.style.marginTop='10px';
+    t.style.padding='8px';
+    t.style.background='#eef6ff';
+    t.style.borderRadius='6px';
+    t.innerHTML = `<strong>Tutorial:</strong> ${text}`;
+    messages.appendChild(t);
+  }
 
-# Rainfall plot
-st.subheader("☔ Daily Rainfall (NASA POWER - Historical)")
-fig, ax = plt.subplots(figsize=(8, 4))
-if not df_hist.empty:
-    ax.plot(df_hist["Date"], df_hist["Rain (mm/day)"], color="blue", label="Rainfall")
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Rain (mm/day)")
-    ax.set_title("Daily Rainfall - Essaouira Jan 2024")
-    ax.legend()
-    st.pyplot(fig)
+  // Minimal Phaser canvas below (visual only)
+  const config = {
+    type: Phaser.AUTO,
+    width: 800,
+    height: 480,
+    parent: null,
+    backgroundColor: '#ffffff',
+    scene: {
+      preload: preload,
+      create: create,
+      update: update
+    }
+  };
+  const game = new Phaser.Game(config);
 
-# Rain forecast plot
-st.subheader("🌦 Rain Forecast (Next 7 Days)")
-if not df_forecast.empty:
-    st.line_chart(df_forecast.set_index("Date")["Rain (mm/day)"])
-else:
-    st.warning("⚠️ No forecast data available.")
+  function preload(){ 
+    this.load.image('olive', 'https://upload.wikimedia.org/wikipedia/commons/6/6c/Olive_tree%2C_Martwa.jpg'); 
+  }
+  function create(){
+    this.add.text(420, 40, 'Scenario: Heatwave Incoming', {font:'18px Arial', fill:'#222'});
+    this.add.image(570, 220, 'olive').setDisplaySize(320,220);
+    this.add.text(420, 80, 'ETc (approx): ' + ETc.toFixed(1) + ' mm/day', {font:'14px Arial', fill:'#333'});
+    this.add.text(420, 110, 'Field capacity: ' + fieldCapacity.toFixed(0) + ' mm', {font:'14px Arial', fill:'#333'});
+  }
+  function update(){}
+})();
+</script>
 
-# -------------------------------
-# 5. Plant Selection and Irrigation Planner
-# -------------------------------
-st.subheader("💧 Irrigation Planner")
-
-selected_plant = st.selectbox("Choose your plant", list(plant_irrigation_profiles.keys()))
-last_irrigation = st.date_input("📅 Select last irrigation date", datetime.date.today())
-soil_moisture_threshold = st.slider("Soil moisture threshold (%)", min_value=0.0, max_value=1.0, value=0.3, step=0.05)
-
-interval = plant_irrigation_profiles[selected_plant]["interval_days"]
-water_amount = plant_irrigation_profiles[selected_plant]["water_mm_per_day"]
-next_irrigation_date = last_irrigation + datetime.timedelta(days=interval)
-days_since_irrigation = (datetime.date.today() - last_irrigation).days
-
-# -------------------------------
-# 6. Irrigation Recommendation
-# -------------------------------
-st.subheader("📢 Irrigation Recommendation")
-
-avg_rain_forecast = df_forecast["Rain (mm/day)"].mean() if not df_forecast.empty else 0.0
-soil_moisture_current = 0.25  # Placeholder — replace with real SMAP data later
-
-if days_since_irrigation >= interval:
-    st.error(f"⚠️ Irrigation overdue! You should water {selected_plant} today (~{water_amount} mm/day).")
-elif avg_rain_forecast >= water_amount:
-    st.info(f"🌧 Rain forecast before next irrigation may be sufficient → consider skipping irrigation.")
-else:
-    st.success(f"✅ Next irrigation for {selected_plant} is on {next_irrigation_date.strftime('%Y-%m-%d')} (~{water_amount} mm/day).")
-
-# -------------------------------
-# 7. Educational Tips
-# -------------------------------
-st.subheader("📚 Tips for Sustainable Irrigation")
-st.markdown("""
-- **Monitor soil moisture** regularly for efficient water use.  
-- **Check rain forecasts** to avoid unnecessary irrigation.  
-- **Use drip irrigation** to save water.  
-- **Schedule irrigation** based on crop needs and soil moisture.
-""")
+</body>
+</html>
